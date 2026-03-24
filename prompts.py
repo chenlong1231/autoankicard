@@ -7,6 +7,7 @@ Do not wrap the JSON in markdown fences.
 Do not invent HTML.
 Do not add commentary.
 Use English definitions and English explanations only.
+Prefer compact output so the card is quick to generate.
 """
 
 
@@ -35,8 +36,8 @@ Return a single JSON object with these keys:
 Constraints:
 - Use English-English explanations only.
 - Make the definitions concise but accurate.
-- Prefer 1-3 meanings for the word.
-- Include 3-8 useful collocations.
-- Include 2-4 extra examples.
+- Prefer 1-2 meanings for the word.
+- Include 2-4 useful collocations.
+- Include 1-2 extra examples.
 - Output JSON only.
 """

@@ -57,7 +57,9 @@ class SiliconFlowClient:
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": build_user_prompt(word)},
             ],
-            "temperature": 0.2,
+            "temperature": 0.0,
+            "max_tokens": max(256, int(self.settings.max_tokens)),
+            "enable_thinking": bool(self.settings.enable_thinking),
         }
         parsed = self._request_json(payload)
         try:
@@ -83,4 +85,3 @@ class SiliconFlowClient:
         if last_error is None:
             raise LLMError("Unknown LLM error")
         raise last_error
-

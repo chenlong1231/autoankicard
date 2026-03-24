@@ -114,6 +114,8 @@ class AppSettings:
     api_key: str = ""
     base_url: str = "https://api.siliconflow.cn/v1"
     model: str = "deepseek-ai/DeepSeek-V3.2"
+    max_tokens: int = 900
+    enable_thinking: bool = False
     default_deck: str = "Default"
     note_model_name: str = "Basic"
     template_preset: str = "classic"
@@ -136,6 +138,8 @@ class AppSettings:
             api_key=str(data.get("api_key", "")),
             base_url=str(data.get("base_url", cls.base_url)).rstrip("/"),
             model=str(data.get("model", cls.model)),
+            max_tokens=int(data.get("max_tokens", cls.max_tokens)),
+            enable_thinking=bool(data.get("enable_thinking", cls.enable_thinking)),
             default_deck=str(data.get("default_deck", cls.default_deck)),
             note_model_name=str(data.get("note_model_name", cls.note_model_name)),
             template_preset=str(data.get("template_preset", cls.template_preset)),
@@ -157,6 +161,14 @@ def load_settings() -> AppSettings:
     merged["api_key"] = os.environ.get("SILICONFLOW_API_KEY", env_values.get("SILICONFLOW_API_KEY", merged.get("api_key", "")))
     merged["base_url"] = os.environ.get("SILICONFLOW_BASE_URL", env_values.get("SILICONFLOW_BASE_URL", merged.get("base_url", AppSettings.base_url))).rstrip("/")
     merged["model"] = os.environ.get("LLM_MODEL", env_values.get("LLM_MODEL", merged.get("model", AppSettings.model)))
+    merged["max_tokens"] = _parse_int(
+        os.environ.get("LLM_MAX_TOKENS", env_values.get("LLM_MAX_TOKENS")),
+        int(merged.get("max_tokens", AppSettings.max_tokens)),
+    )
+    merged["enable_thinking"] = _parse_bool(
+        os.environ.get("ENABLE_THINKING", env_values.get("ENABLE_THINKING")),
+        bool(merged.get("enable_thinking", AppSettings.enable_thinking)),
+    )
     merged["default_deck"] = os.environ.get("DEFAULT_DECK", env_values.get("DEFAULT_DECK", merged.get("default_deck", AppSettings.default_deck)))
     merged["note_model_name"] = os.environ.get("NOTE_MODEL_NAME", env_values.get("NOTE_MODEL_NAME", merged.get("note_model_name", AppSettings.note_model_name)))
     merged["template_preset"] = os.environ.get("TEMPLATE_PRESET", env_values.get("TEMPLATE_PRESET", merged.get("template_preset", AppSettings.template_preset)))

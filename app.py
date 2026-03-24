@@ -209,6 +209,7 @@ class AutoAnkiCardApp:
             ("API key", "api_key", self.settings.api_key),
             ("Base URL", "base_url", self.settings.base_url),
             ("LLM model", "model", self.settings.model),
+            ("Max tokens", "max_tokens", str(self.settings.max_tokens)),
             ("Default deck", "default_deck", self.settings.default_deck),
             ("Note model", "note_model_name", self.settings.note_model_name),
             ("Template preset", "template_preset", self.settings.template_preset),
@@ -239,9 +240,14 @@ class AutoAnkiCardApp:
             )
             self.settings_vars[attr] = var
 
+        self.enable_thinking_var = tk.BooleanVar(value=self.settings.enable_thinking)
+        thinking_row = len(entries)
+        ttk.Label(self.settings_inner, text="Enable thinking").grid(row=thinking_row, column=0, sticky="w", padx=(0, 10), pady=4)
+        ttk.Checkbutton(self.settings_inner, variable=self.enable_thinking_var).grid(row=thinking_row, column=1, sticky="w", pady=4)
+
         self.settings_inner.columnconfigure(1, weight=1)
         ttk.Button(self.settings_inner, text="Apply Settings", command=self.save_settings_from_ui).grid(
-            row=len(entries), column=0, columnspan=2, sticky="ew", pady=(12, 0)
+            row=len(entries) + 1, column=0, columnspan=2, sticky="ew", pady=(12, 0)
         )
 
     def _build_history_tab(self) -> None:
@@ -293,6 +299,7 @@ class AutoAnkiCardApp:
         self.settings_vars["api_key"].set(self.settings.api_key)
         self.settings_vars["base_url"].set(self.settings.base_url)
         self.settings_vars["model"].set(self.settings.model)
+        self.settings_vars["max_tokens"].set(str(self.settings.max_tokens))
         self.settings_vars["default_deck"].set(self.settings.default_deck)
         self.settings_vars["note_model_name"].set(self.settings.note_model_name)
         self.settings_vars["template_preset"].set(self.settings.template_preset)
@@ -300,6 +307,7 @@ class AutoAnkiCardApp:
         self.settings_vars["timeout_seconds"].set(str(self.settings.timeout_seconds))
         self.settings_vars["retry_count"].set(str(self.settings.retry_count))
         self.settings_vars["retry_delay_seconds"].set(str(self.settings.retry_delay_seconds))
+        self.enable_thinking_var.set(self.settings.enable_thinking)
         for key in self.settings.field_map.__dict__.keys():
             self.settings_vars[key].set(getattr(self.settings.field_map, key))
         self.deck_var.set(self.settings.default_deck)
@@ -326,6 +334,8 @@ class AutoAnkiCardApp:
             api_key=self.settings_vars["api_key"].get().strip(),
             base_url=self.settings_vars["base_url"].get().strip().rstrip("/"),
             model=self.settings_vars["model"].get().strip(),
+            max_tokens=int(float(self.settings_vars["max_tokens"].get().strip() or self.settings.max_tokens)),
+            enable_thinking=self.enable_thinking_var.get(),
             default_deck=self.settings_vars["default_deck"].get().strip(),
             note_model_name=self.settings_vars["note_model_name"].get().strip(),
             template_preset=self.settings_vars["template_preset"].get().strip() or "classic",

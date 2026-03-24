@@ -11,6 +11,7 @@ The desktop app now covers phase 1 through phase 3: core generation, preview, de
 - Runs as a Windows GUI app.
 - Takes one English word or a batch of words.
 - Calls SiliconFlow with `deepseek-ai/DeepSeek-V3.2`.
+- Uses a fast generation path with thinking disabled by default and a capped token budget.
 - Validates the LLM response as structured JSON.
 - Renders deterministic Front and Back HTML in code using an English-English study-card format.
 - Lets you translate first, then push the prepared card to Anki through AnkiConnect.
@@ -24,6 +25,8 @@ Create a `.env` file in the project root:
 SILICONFLOW_API_KEY=your_api_key_here
 SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
 LLM_MODEL=deepseek-ai/DeepSeek-V3.2
+LLM_MAX_TOKENS=900
+ENABLE_THINKING=false
 DEFAULT_DECK=Default
 NOTE_MODEL_NAME=Basic
 TEMPLATE_PRESET=classic
@@ -55,5 +58,6 @@ This is the development launch path. The intended product shape is a Windows des
 - `.env` stays local and is ignored by git.
 - `.autoankicard.log` is created locally and is ignored by git.
 - The app does not generate HTML from the model output. It validates JSON first, then renders HTML deterministically in Python.
+- If generation feels slow, lower `LLM_MAX_TOKENS` or keep `ENABLE_THINKING=false`.
 - You may need to create or choose an Anki note model whose field names match the settings in the app.
 - If AnkiConnect is not running, deck/model refresh and note submission will fail until Anki is open with AnkiConnect enabled.
