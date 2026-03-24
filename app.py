@@ -15,7 +15,13 @@ from tkinter import messagebox, ttk
 from anki_client import AnkiConnectClient
 from config import HISTORY_PATH, LOG_PATH, STATE_PATH, AppSettings, load_json_file, load_settings, save_json_file
 from llm_client import SiliconFlowClient
-from renderers import PRESETS, render_back_html, render_front_html
+from renderers import (
+    PRESETS,
+    render_back_html,
+    render_back_preview_text,
+    render_front_html,
+    render_front_preview_text,
+)
 
 
 @dataclass
@@ -155,25 +161,38 @@ class AutoAnkiCardApp:
         self.push_button.grid(row=0, column=1, sticky="ew", padx=(0, 6))
         ttk.Button(button_row, text="Save Settings", command=self.save_settings_from_ui).grid(row=0, column=2, sticky="ew")
 
-        self.status_var = tk.StringVar(value="Ready")
-        ttk.Label(left, textvariable=self.status_var).grid(row=8, column=0, columnspan=3, sticky="w", pady=(12, 0))
-
         right = ttk.Frame(self.generate_tab)
         right.grid(row=0, column=1, sticky="nsew")
         right.columnconfigure(0, weight=1)
-        right.rowconfigure(0, weight=1)
+        right.rowconfigure(0, weight=3)
+        right.rowconfigure(1, weight=3)
+        right.rowconfigure(2, weight=1)
 
-        preview_tabs = ttk.Notebook(right)
-        preview_tabs.grid(row=0, column=0, sticky="nsew")
+        self.back_frame = ttk.LabelFrame(right, text="Back Preview", padding=10)
+        self.back_frame.grid(row=0, column=0, sticky="nsew", pady=(0, 10))
+        self.back_frame.columnconfigure(0, weight=1)
+        self.back_frame.rowconfigure(0, weight=1)
 
-        self.summary_text = tk.Text(preview_tabs, wrap="word")
-        self.front_text = tk.Text(preview_tabs, wrap="word")
-        self.back_text = tk.Text(preview_tabs, wrap="word")
-        self.raw_text = tk.Text(preview_tabs, wrap="word")
-        preview_tabs.add(self.summary_text, text="Summary")
-        preview_tabs.add(self.front_text, text="Front HTML")
-        preview_tabs.add(self.back_text, text="Back HTML")
-        preview_tabs.add(self.raw_text, text="Raw JSON")
+        self.front_frame = ttk.LabelFrame(right, text="Front Preview", padding=10)
+        self.front_frame.grid(row=1, column=0, sticky="nsew", pady=(0, 10))
+        self.front_frame.columnconfigure(0, weight=1)
+        self.front_frame.rowconfigure(0, weight=1)
+
+        self.status_frame = ttk.LabelFrame(right, text="Status", padding=10)
+        self.status_frame.grid(row=2, column=0, sticky="nsew")
+        self.status_frame.columnconfigure(0, weight=1)
+        self.status_frame.rowconfigure(0, weight=1)
+
+        self.back_preview_text = tk.Text(self.back_frame, wrap="word", height=12)
+        self.back_preview_text.grid(row=0, column=0, sticky="nsew")
+        self.front_preview_text = tk.Text(self.front_frame, wrap="word", height=12)
+        self.front_preview_text.grid(row=0, column=0, sticky="nsew")
+        self.status_preview_text = tk.Text(self.status_frame, wrap="word", height=8)
+        self.status_preview_text.grid(row=0, column=0, sticky="nsew")
+
+        self.status_var = tk.StringVar(value="Ready")
+        self.status_label = ttk.Label(left, textvariable=self.status_var)
+        self.status_label.grid(row=8, column=0, columnspan=3, sticky="w", pady=(12, 0))
 
     def _build_settings_tab(self) -> None:
         canvas = tk.Canvas(self.settings_tab, borderwidth=0, highlightthickness=0)
@@ -292,6 +311,14 @@ class AutoAnkiCardApp:
         if self.model_var.get().strip():
             self.settings_vars["note_model_name"].set(self.model_var.get().strip())
 
+    def _sync_settings_to_active_targets(self) -> None:
+        deck = self.settings.default_deck.strip()
+        model = self.settings.note_model_name.strip()
+        if deck:
+            self.deck_var.set(deck)
+        if model:
+            self.model_var.set(model)
+
     def _collect_settings_from_ui(self) -> AppSettings:
         field_map_data = {key: self.settings_vars[key].get().strip() for key in self.settings.field_map.__dict__.keys()}
         field_map = self.settings.field_map.from_dict(field_map_data)
@@ -320,6 +347,7 @@ class AutoAnkiCardApp:
         save_json_file(STATE_PATH, self.settings.to_dict())
         self.anki_client = AnkiConnectClient(self.settings)
         self.llm_client = SiliconFlowClient(self.settings)
+        self._sync_settings_to_active_targets()
         self.status_var.set("Settings saved")
         self.logger.info("Settings saved")
         self._refresh_anki_lists()
@@ -487,10 +515,12 @@ class AutoAnkiCardApp:
                         self.deck_combo["values"] = decks
                         if self.deck_var.get() not in decks:
                             self.deck_var.set(self.settings.default_deck if self.settings.default_deck in decks else decks[0])
+                        self.settings_vars["default_deck"].set(self.deck_var.get())
                     if models:
                         self.model_combo["values"] = models
                         if self.model_var.get() not in models:
                             self.model_var.set(self.settings.note_model_name if self.settings.note_model_name in models else models[0])
+                        self.settings_vars["note_model_name"].set(self.model_var.get())
                     self.status_var.set("Anki lists refreshed")
                 elif kind == "record":
                     record = message["record"]
@@ -529,11 +559,10 @@ class AutoAnkiCardApp:
         ]
         if record.error:
             summary.append(f"Error: {record.error}")
-        self._set_text(self.summary_text, "\n".join(summary))
-        self._set_text(self.front_text, record.front_html)
-        self._set_text(self.back_text, record.back_html)
-        raw_value = record.raw_json or json.dumps(record.card or {}, indent=2, ensure_ascii=False)
-        self._set_text(self.raw_text, raw_value)
+        self._set_text(self.status_preview_text, "\n".join(summary))
+        card = record.card or {}
+        self._set_text(self.front_preview_text, render_front_preview_text(card))
+        self._set_text(self.back_preview_text, render_back_preview_text(card))
         if record.status == "translated":
             self.pending_record = record
             self.push_button.config(state="normal")
@@ -588,10 +617,9 @@ class AutoAnkiCardApp:
         self.history = []
         self._save_history()
         self._refresh_history_tree()
-        self._set_text(self.summary_text, "")
-        self._set_text(self.front_text, "")
-        self._set_text(self.back_text, "")
-        self._set_text(self.raw_text, "")
+        self._set_text(self.status_preview_text, "")
+        self._set_text(self.front_preview_text, "")
+        self._set_text(self.back_preview_text, "")
         self.status_var.set("History cleared")
         self.logger.info("Local history cleared")
 

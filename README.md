@@ -12,7 +12,7 @@ The desktop app now covers phase 1 through phase 3: core generation, preview, de
 - Takes one English word or a batch of words.
 - Calls SiliconFlow with `deepseek-ai/DeepSeek-V3.2`.
 - Validates the LLM response as structured JSON.
-- Renders deterministic Front and Back HTML in code.
+- Renders deterministic Front and Back HTML in code using an English-English study-card format.
 - Lets you translate first, then push the prepared card to Anki through AnkiConnect.
 - Shows preview, raw JSON, returned note ID, and local history.
 
