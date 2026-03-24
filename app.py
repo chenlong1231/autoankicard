@@ -481,12 +481,11 @@ class AutoAnkiCardApp:
             "Back": record.back_html,
         }
 
-        tags = self._build_tags(settings, str(card.get("part_of_speech", "")) or "unknown")
         note_id = self.anki_client.add_note(
             deck_name,
             model_name,
             fields,
-            tags=tags,
+            tags=[],
         )
         status = "ok"
         error = ""
@@ -641,19 +640,6 @@ class AutoAnkiCardApp:
 
     def _timestamp(self) -> str:
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    def _build_tags(self, settings: AppSettings, part_of_speech: str) -> List[str]:
-        tags = ["autoankicard", settings.template_preset, part_of_speech]
-        tags.extend([tag for tag in settings.tags.replace(",", " ").split() if tag])
-        deduped: List[str] = []
-        seen = set()
-        for tag in tags:
-            cleaned = tag.strip()
-            if not cleaned or cleaned in seen:
-                continue
-            seen.add(cleaned)
-            deduped.append(cleaned)
-        return deduped
 
     def _selected_deck_name(self) -> str:
         deck = self.deck_var.get().strip()
