@@ -1,1 +1,5 @@
 .env
+.autoankicard_state.json
+.autoankicard_history.json
+.autoankicard.log
+__pycache__/
