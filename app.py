@@ -89,6 +89,8 @@ class AutoAnkiCardApp:
         self.root = root
         self.root.title("autoankicard")
         self.root.geometry("1320x900")
+        self._dpi_scale = 1.0
+        self._dpi_sync_job: Optional[str] = None
 
         self.settings = load_settings()
         self.history: List[CardRunRecord] = self._load_history()
@@ -108,6 +110,7 @@ class AutoAnkiCardApp:
         self._refresh_anki_lists()
         self._sync_active_targets_to_settings()
         self.logger.info("Application started")
+        self.root.bind("<Configure>", self._schedule_dpi_sync, add="+")
         self._poll_queue()
 
     def _build_ui(self) -> None:
@@ -216,6 +219,7 @@ class AutoAnkiCardApp:
         self.status_var = tk.StringVar(value="Ready")
         self.status_label = ttk.Label(left, textvariable=self.status_var)
         self.status_label.grid(row=8, column=0, columnspan=3, sticky="w", pady=(12, 0))
+        self.root.after(100, self._sync_window_dpi)
 
     def _build_settings_tab(self) -> None:
         canvas = tk.Canvas(self.settings_tab, borderwidth=0, highlightthickness=0)
@@ -814,6 +818,46 @@ class AutoAnkiCardApp:
         except Exception as exc:
             messagebox.showerror("Open log file", str(exc))
             self.logger.exception("Failed to open log file")
+
+    def _get_window_dpi(self) -> Optional[int]:
+        if not hasattr(ctypes, "windll"):
+            return None
+        try:
+            hwnd = self.root.winfo_id()
+            get_dpi_for_window = getattr(ctypes.windll.user32, "GetDpiForWindow", None)
+            if get_dpi_for_window is None:
+                return None
+            return int(get_dpi_for_window(hwnd))
+        except Exception:
+            return None
+
+    def _sync_window_dpi(self) -> None:
+        dpi = self._get_window_dpi()
+        if not dpi:
+            return
+        scale = dpi / 96.0
+        if abs(scale - self._dpi_scale) < 0.02:
+            return
+        self._dpi_scale = scale
+        try:
+            self.root.tk.call("tk", "scaling", scale)
+        except tk.TclError:
+            pass
+        self.logger.info("Adjusted UI scale to %.2f for DPI %s", scale, dpi)
+
+    def _schedule_dpi_sync(self, event: tk.Event) -> None:
+        if event.widget is not self.root:
+            return
+        if self._dpi_sync_job is not None:
+            try:
+                self.root.after_cancel(self._dpi_sync_job)
+            except tk.TclError:
+                pass
+        self._dpi_sync_job = self.root.after(150, self._run_scheduled_dpi_sync)
+
+    def _run_scheduled_dpi_sync(self) -> None:
+        self._dpi_sync_job = None
+        self._sync_window_dpi()
 
 
 def main() -> None:
