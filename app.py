@@ -218,9 +218,9 @@ class AutoAnkiCardApp:
         self.status_frame.columnconfigure(0, weight=1)
         self.status_frame.rowconfigure(0, weight=1)
 
-        self.back_preview_text = tk.Text(self.back_frame, wrap="word", height=18, font=("Segoe UI", 13))
+        self.back_preview_text = tk.Text(self.back_frame, wrap="word", height=22, font=("Segoe UI", 16))
         self.back_preview_text.grid(row=0, column=0, sticky="nsew")
-        self.front_preview_text = tk.Text(self.front_frame, wrap="word", height=10, font=("Segoe UI", 11))
+        self.front_preview_text = tk.Text(self.front_frame, wrap="word", height=9, font=("Segoe UI", 11))
         self.front_preview_text.grid(row=0, column=0, sticky="nsew")
         self.status_preview_text = tk.Text(self.status_frame, wrap="word", height=8, font=("Segoe UI", 10))
         self.status_preview_text.grid(row=0, column=0, sticky="nsew")
@@ -678,30 +678,30 @@ class AutoAnkiCardApp:
     def _configure_preview_styles(self) -> None:
         self.back_preview_text.tag_configure(
             "header",
-            font=("Segoe UI", 15, "bold"),
+            font=("Segoe UI", 18, "bold"),
             foreground="#1f4e79",
             spacing3=8,
         )
         self.back_preview_text.tag_configure(
             "section",
-            font=("Segoe UI", 12, "bold"),
+            font=("Segoe UI", 14, "bold"),
             foreground="#2b4a66",
             spacing1=6,
             spacing3=4,
         )
         self.back_preview_text.tag_configure(
             "label",
-            font=("Segoe UI", 11, "bold"),
+            font=("Segoe UI", 12, "bold"),
             foreground="#17324a",
         )
         self.back_preview_text.tag_configure(
             "accent",
-            font=("Segoe UI", 11, "bold"),
+            font=("Segoe UI", 12, "bold"),
             foreground="#7a4f1f",
         )
         self.back_preview_text.tag_configure(
             "body",
-            font=("Segoe UI", 11),
+            font=("Segoe UI", 12),
             foreground="#22313f",
         )
         self.back_preview_text.configure(spacing1=4, spacing2=2, spacing3=8, padx=4, pady=4)
@@ -883,7 +883,7 @@ class AutoAnkiCardApp:
         resize_named_font("TkMenuFont", 10)
         resize_named_font("TkHeadingFont", 10, "bold")
         resize_named_font("TkFixedFont", 10)
-        self.back_preview_text.configure(font=("Segoe UI", max(1, int(round(13 * scale)))))
+        self.back_preview_text.configure(font=("Segoe UI", max(1, int(round(16 * scale)))))
         self.front_preview_text.configure(font=("Segoe UI", max(1, int(round(11 * scale)))))
         self.status_preview_text.configure(font=("Segoe UI", max(1, int(round(10 * scale)))))
         self.font_zoom_label_var.set(f"Font: {int(round(self._font_zoom_factor * 100))}%")
