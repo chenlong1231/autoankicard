@@ -6,6 +6,7 @@ import json
 import ctypes
 import queue
 import threading
+import tkinter.font as tkfont
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Dict, List, Optional
