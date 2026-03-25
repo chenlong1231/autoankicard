@@ -6,7 +6,6 @@ import json
 import ctypes
 import queue
 import threading
-import tkinter.font as tkfont
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -90,9 +89,6 @@ class AutoAnkiCardApp:
         self.root = root
         self.root.title("autoankicard")
         self.root.geometry("1320x900")
-        self._dpi_scale = 1.0
-        self._font_zoom_factor = 1.0
-        self._dpi_sync_job: Optional[str] = None
 
         self.settings = load_settings()
         self.history: List[CardRunRecord] = self._load_history()
@@ -112,7 +108,6 @@ class AutoAnkiCardApp:
         self._refresh_anki_lists()
         self._sync_active_targets_to_settings()
         self.logger.info("Application started")
-        self.root.bind("<Configure>", self._schedule_dpi_sync, add="+")
         self._poll_queue()
 
     def _build_ui(self) -> None:
@@ -145,48 +140,39 @@ class AutoAnkiCardApp:
         left.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
         left.columnconfigure(1, weight=1)
 
-        zoom_row = ttk.Frame(left)
-        zoom_row.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 8))
-        zoom_row.columnconfigure(2, weight=1)
-        ttk.Button(zoom_row, text="-10%", command=lambda: self.adjust_font_zoom(-0.1)).grid(row=0, column=0, sticky="w")
-        ttk.Button(zoom_row, text="+10%", command=lambda: self.adjust_font_zoom(0.1)).grid(row=0, column=1, sticky="w", padx=(8, 0))
-        ttk.Button(zoom_row, text="Reset", command=self.reset_font_zoom).grid(row=0, column=2, sticky="w", padx=(8, 0))
-        self.font_zoom_label_var = tk.StringVar(value="Font: 100%")
-        ttk.Label(zoom_row, textvariable=self.font_zoom_label_var).grid(row=0, column=3, sticky="e")
-
-        ttk.Label(left, text="Word", font=("Segoe UI", 12, "bold")).grid(row=1, column=0, columnspan=3, sticky="w")
+        ttk.Label(left, text="Word", font=("Segoe UI", 12, "bold")).grid(row=0, column=0, columnspan=3, sticky="w")
         self.word_var = tk.StringVar(value="example")
         self.word_entry = ttk.Entry(left, textvariable=self.word_var)
-        self.word_entry.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(6, 10))
+        self.word_entry.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(6, 10))
 
-        ttk.Label(left, text="Deck").grid(row=3, column=0, sticky="w")
+        ttk.Label(left, text="Deck").grid(row=2, column=0, sticky="w")
         self.deck_var = tk.StringVar()
         self.deck_combo = ttk.Combobox(left, textvariable=self.deck_var, values=[self.settings.default_deck], state="readonly")
-        self.deck_combo.grid(row=3, column=1, sticky="ew", padx=(8, 8))
-        ttk.Button(left, text="Refresh", command=self._refresh_anki_lists).grid(row=3, column=2, sticky="ew")
+        self.deck_combo.grid(row=2, column=1, sticky="ew", padx=(8, 8))
+        ttk.Button(left, text="Refresh", command=self._refresh_anki_lists).grid(row=2, column=2, sticky="ew")
 
-        ttk.Label(left, text="Model").grid(row=4, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(left, text="Model").grid(row=3, column=0, sticky="w", pady=(8, 0))
         self.model_var = tk.StringVar()
         self.model_combo = ttk.Combobox(left, textvariable=self.model_var, values=[self.settings.note_model_name], state="readonly")
-        self.model_combo.grid(row=4, column=1, sticky="ew", padx=(8, 8), pady=(8, 0))
-        ttk.Button(left, text="Refresh", command=self._refresh_anki_lists).grid(row=4, column=2, sticky="ew", pady=(8, 0))
+        self.model_combo.grid(row=3, column=1, sticky="ew", padx=(8, 8), pady=(8, 0))
+        ttk.Button(left, text="Refresh", command=self._refresh_anki_lists).grid(row=3, column=2, sticky="ew", pady=(8, 0))
 
-        ttk.Label(left, text="Template preset").grid(row=5, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(left, text="Template preset").grid(row=4, column=0, sticky="w", pady=(8, 0))
         self.preset_var = tk.StringVar(value=self.settings.template_preset)
         self.preset_combo = ttk.Combobox(left, textvariable=self.preset_var, values=list(PRESETS.keys()), state="readonly")
-        self.preset_combo.grid(row=5, column=1, sticky="ew", padx=(8, 8), pady=(8, 0))
-        ttk.Label(left, text="HTML preset").grid(row=5, column=2, sticky="w", pady=(8, 0))
+        self.preset_combo.grid(row=4, column=1, sticky="ew", padx=(8, 8), pady=(8, 0))
+        ttk.Label(left, text="HTML preset").grid(row=4, column=2, sticky="w", pady=(8, 0))
 
-        ttk.Label(left, text="Tags").grid(row=6, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(left, text="Tags").grid(row=5, column=0, sticky="w", pady=(8, 0))
         self.tags_var = tk.StringVar(value=self.settings.tags)
-        ttk.Entry(left, textvariable=self.tags_var).grid(row=6, column=1, sticky="ew", padx=(8, 8), pady=(8, 0))
-        ttk.Label(left, text="Comma or space separated").grid(row=6, column=2, sticky="w", pady=(8, 0))
+        ttk.Entry(left, textvariable=self.tags_var).grid(row=5, column=1, sticky="ew", padx=(8, 8), pady=(8, 0))
+        ttk.Label(left, text="Comma or space separated").grid(row=5, column=2, sticky="w", pady=(8, 0))
 
         self.skip_duplicates_var = tk.BooleanVar(value=self.settings.skip_duplicates)
-        ttk.Checkbutton(left, text="Skip duplicates", variable=self.skip_duplicates_var).grid(row=7, column=0, columnspan=2, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(left, text="Skip duplicates", variable=self.skip_duplicates_var).grid(row=6, column=0, columnspan=2, sticky="w", pady=(8, 0))
 
         button_row = ttk.Frame(left)
-        button_row.grid(row=8, column=0, columnspan=3, sticky="ew", pady=(12, 0))
+        button_row.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(12, 0))
         button_row.columnconfigure(0, weight=1)
         button_row.columnconfigure(1, weight=1)
         button_row.columnconfigure(2, weight=1)
@@ -218,7 +204,7 @@ class AutoAnkiCardApp:
         self.status_frame.columnconfigure(0, weight=1)
         self.status_frame.rowconfigure(0, weight=1)
 
-        self.back_preview_text = tk.Text(self.back_frame, wrap="word", height=22, font=("Segoe UI", 16))
+        self.back_preview_text = tk.Text(self.back_frame, wrap="word", height=18, font=("Segoe UI", 13))
         self.back_preview_text.grid(row=0, column=0, sticky="nsew")
         self.front_preview_text = tk.Text(self.front_frame, wrap="word", height=9, font=("Segoe UI", 11))
         self.front_preview_text.grid(row=0, column=0, sticky="nsew")
@@ -229,9 +215,7 @@ class AutoAnkiCardApp:
 
         self.status_var = tk.StringVar(value="Ready")
         self.status_label = ttk.Label(left, textvariable=self.status_var)
-        self.status_label.grid(row=9, column=0, columnspan=3, sticky="w", pady=(12, 0))
-        self.root.after(100, self._sync_window_dpi)
-        self._apply_font_zoom()
+        self.status_label.grid(row=8, column=0, columnspan=3, sticky="w", pady=(12, 0))
 
     def _build_settings_tab(self) -> None:
         canvas = tk.Canvas(self.settings_tab, borderwidth=0, highlightthickness=0)
@@ -830,71 +814,6 @@ class AutoAnkiCardApp:
         except Exception as exc:
             messagebox.showerror("Open log file", str(exc))
             self.logger.exception("Failed to open log file")
-
-    def _get_window_dpi(self) -> Optional[int]:
-        if not hasattr(ctypes, "windll"):
-            return None
-        try:
-            hwnd = self.root.winfo_id()
-            get_dpi_for_window = getattr(ctypes.windll.user32, "GetDpiForWindow", None)
-            if get_dpi_for_window is None:
-                return None
-            return int(get_dpi_for_window(hwnd))
-        except Exception:
-            return None
-
-    def _sync_window_dpi(self) -> None:
-        dpi = self._get_window_dpi()
-        if not dpi:
-            return
-        scale = dpi / 96.0
-        if abs(scale - self._dpi_scale) < 0.02:
-            return
-        self._dpi_scale = scale
-        self._apply_font_zoom()
-        self.logger.info("Adjusted UI scale to %.2f for DPI %s", scale, dpi)
-
-    def _schedule_dpi_sync(self, event: tk.Event) -> None:
-        if event.widget is not self.root:
-            return
-        if self._dpi_sync_job is not None:
-            try:
-                self.root.after_cancel(self._dpi_sync_job)
-            except tk.TclError:
-                pass
-        self._dpi_sync_job = self.root.after(150, self._run_scheduled_dpi_sync)
-
-    def _run_scheduled_dpi_sync(self) -> None:
-        self._dpi_sync_job = None
-        self._sync_window_dpi()
-
-    def _apply_font_zoom(self) -> None:
-        scale = max(0.75, min(1.6, self._dpi_scale * self._font_zoom_factor))
-
-        def resize_named_font(name: str, base_size: int, weight: str = "normal") -> None:
-            try:
-                font = tkfont.nametofont(name)
-                font.configure(size=max(1, int(round(base_size * scale))), weight=weight)
-            except tk.TclError:
-                pass
-
-        resize_named_font("TkDefaultFont", 10)
-        resize_named_font("TkTextFont", 10)
-        resize_named_font("TkMenuFont", 10)
-        resize_named_font("TkHeadingFont", 10, "bold")
-        resize_named_font("TkFixedFont", 10)
-        self.back_preview_text.configure(font=("Segoe UI", max(1, int(round(16 * scale)))))
-        self.front_preview_text.configure(font=("Segoe UI", max(1, int(round(11 * scale)))))
-        self.status_preview_text.configure(font=("Segoe UI", max(1, int(round(10 * scale)))))
-        self.font_zoom_label_var.set(f"Font: {int(round(self._font_zoom_factor * 100))}%")
-
-    def adjust_font_zoom(self, delta: float) -> None:
-        self._font_zoom_factor = max(0.5, min(2.0, self._font_zoom_factor + delta))
-        self._apply_font_zoom()
-
-    def reset_font_zoom(self) -> None:
-        self._font_zoom_factor = 1.0
-        self._apply_font_zoom()
 
 
 def main() -> None:
