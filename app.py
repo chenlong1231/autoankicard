@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from logging.handlers import RotatingFileHandler
 import json
+import ctypes
 import queue
 import threading
 from dataclasses import asdict, dataclass
@@ -21,6 +22,28 @@ from renderers import (
     render_front_html,
     render_front_preview_text,
 )
+
+
+def _enable_windows_dpi_awareness() -> None:
+    if not hasattr(ctypes, "windll"):
+        return
+
+    try:
+        ctypes.windll.user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4))
+        return
+    except Exception:
+        pass
+
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        return
+    except Exception:
+        pass
+
+    try:
+        ctypes.windll.user32.SetProcessDPIAware()
+    except Exception:
+        pass
 
 
 @dataclass
@@ -794,11 +817,16 @@ class AutoAnkiCardApp:
 
 
 def main() -> None:
+    _enable_windows_dpi_awareness()
     root = tk.Tk()
     try:
         style = ttk.Style()
         if "clam" in style.theme_names():
             style.theme_use("clam")
+    except tk.TclError:
+        pass
+    try:
+        root.tk.call("tk", "scaling", root.winfo_fpixels("1i") / 72.0)
     except tk.TclError:
         pass
     AutoAnkiCardApp(root)
