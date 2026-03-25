@@ -18,7 +18,6 @@ from llm_client import SiliconFlowClient
 from renderers import (
     PRESETS,
     render_back_html,
-    render_back_preview_text,
     render_front_html,
     render_front_preview_text,
 )
@@ -111,18 +110,17 @@ class AutoAnkiCardApp:
 
     def _build_generate_tab(self) -> None:
         self.generate_tab.columnconfigure(0, weight=1)
-        self.generate_tab.columnconfigure(1, weight=2)
+        self.generate_tab.columnconfigure(1, weight=4)
         self.generate_tab.rowconfigure(0, weight=1)
 
         left = ttk.Frame(self.generate_tab)
         left.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
         left.columnconfigure(1, weight=1)
-        left.rowconfigure(1, weight=1)
 
-        ttk.Label(left, text="Words", font=("Segoe UI", 12, "bold")).grid(row=0, column=0, columnspan=3, sticky="w")
-        self.words_text = tk.Text(left, height=12, wrap="word")
-        self.words_text.grid(row=1, column=0, columnspan=3, sticky="nsew", pady=(6, 10))
-        self.words_text.insert("1.0", "example")
+        ttk.Label(left, text="Word", font=("Segoe UI", 12, "bold")).grid(row=0, column=0, columnspan=3, sticky="w")
+        self.word_var = tk.StringVar(value="example")
+        self.word_entry = ttk.Entry(left, textvariable=self.word_var)
+        self.word_entry.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(6, 10))
 
         ttk.Label(left, text="Deck").grid(row=2, column=0, sticky="w")
         self.deck_var = tk.StringVar()
@@ -164,7 +162,7 @@ class AutoAnkiCardApp:
         right = ttk.Frame(self.generate_tab)
         right.grid(row=0, column=1, sticky="nsew")
         right.columnconfigure(0, weight=1)
-        right.rowconfigure(0, weight=3)
+        right.rowconfigure(0, weight=5)
         right.rowconfigure(1, weight=3)
         right.rowconfigure(2, weight=1)
 
@@ -183,12 +181,14 @@ class AutoAnkiCardApp:
         self.status_frame.columnconfigure(0, weight=1)
         self.status_frame.rowconfigure(0, weight=1)
 
-        self.back_preview_text = tk.Text(self.back_frame, wrap="word", height=12)
+        self.back_preview_text = tk.Text(self.back_frame, wrap="word", height=18, font=("Segoe UI", 13))
         self.back_preview_text.grid(row=0, column=0, sticky="nsew")
-        self.front_preview_text = tk.Text(self.front_frame, wrap="word", height=12)
+        self.front_preview_text = tk.Text(self.front_frame, wrap="word", height=10, font=("Segoe UI", 11))
         self.front_preview_text.grid(row=0, column=0, sticky="nsew")
-        self.status_preview_text = tk.Text(self.status_frame, wrap="word", height=8)
+        self.status_preview_text = tk.Text(self.status_frame, wrap="word", height=8, font=("Segoe UI", 10))
         self.status_preview_text.grid(row=0, column=0, sticky="nsew")
+
+        self._configure_preview_styles()
 
         self.status_var = tk.StringVar(value="Ready")
         self.status_label = ttk.Label(left, textvariable=self.status_var)
@@ -380,9 +380,9 @@ class AutoAnkiCardApp:
         self.status_var.set("Refreshing Anki lists...")
 
     def start_translation(self) -> None:
-        words = [line.strip() for line in self.words_text.get("1.0", "end").splitlines() if line.strip()]
-        if not words:
-            messagebox.showwarning("Missing input", "Enter at least one word.")
+        word = self.word_var.get().strip()
+        if not word:
+            messagebox.showwarning("Missing input", "Enter one word.")
             return
         if not self.save_settings_from_ui(refresh=False):
             return
@@ -390,27 +390,25 @@ class AutoAnkiCardApp:
         self.translate_button.config(state="disabled")
         self.push_button.config(state="disabled")
         self.pending_record = None
-        self.status_var.set(f"Translating {len(words)} card(s)...")
-        self.logger.info("Starting translation for %d word(s)", len(words))
+        self.status_var.set("Translating 1 card...")
+        self.logger.info("Starting translation for word %s", word)
 
         def worker() -> None:
-            total = len(words)
-            for index, word in enumerate(words, start=1):
-                try:
-                    record = self._translate_word(word, index, total, self.settings)
-                except Exception as exc:
-                    self.logger.exception("Generation failed for word %s", word)
-                    record = CardRunRecord(
-                        timestamp=self._timestamp(),
-                        word=word,
-                        status="error",
-                        note_id=None,
-                        deck_name=self.settings.default_deck,
-                        model_name=self.settings.note_model_name,
-                        preset=self.preset_var.get(),
-                        error=str(exc),
-                    )
-                self.worker_queue.put({"kind": "record", "record": record})
+            try:
+                record = self._translate_word(word, 1, 1, self.settings)
+            except Exception as exc:
+                self.logger.exception("Generation failed for word %s", word)
+                record = CardRunRecord(
+                    timestamp=self._timestamp(),
+                    word=word,
+                    status="error",
+                    note_id=None,
+                    deck_name=self.settings.default_deck,
+                    model_name=self.settings.note_model_name,
+                    preset=self.preset_var.get(),
+                    error=str(exc),
+                )
+            self.worker_queue.put({"kind": "record", "record": record})
             self.worker_queue.put({"kind": "done"})
 
         threading.Thread(target=worker, daemon=True).start()
@@ -571,7 +569,7 @@ class AutoAnkiCardApp:
         self._set_text(self.status_preview_text, "\n".join(summary))
         card = record.card or {}
         self._set_text(self.front_preview_text, render_front_preview_text(card))
-        self._set_text(self.back_preview_text, render_back_preview_text(card))
+        self._set_back_preview(card)
         if record.status == "translated":
             self.pending_record = record
             self.push_button.config(state="normal")
@@ -637,6 +635,100 @@ class AutoAnkiCardApp:
         widget.delete("1.0", "end")
         widget.insert("1.0", value)
         widget.configure(state="normal")
+
+    def _configure_preview_styles(self) -> None:
+        self.back_preview_text.tag_configure(
+            "header",
+            font=("Segoe UI", 15, "bold"),
+            foreground="#1f4e79",
+            spacing3=8,
+        )
+        self.back_preview_text.tag_configure(
+            "section",
+            font=("Segoe UI", 12, "bold"),
+            foreground="#2b4a66",
+            spacing1=6,
+            spacing3=4,
+        )
+        self.back_preview_text.tag_configure(
+            "label",
+            font=("Segoe UI", 11, "bold"),
+            foreground="#17324a",
+        )
+        self.back_preview_text.tag_configure(
+            "accent",
+            font=("Segoe UI", 11, "bold"),
+            foreground="#7a4f1f",
+        )
+        self.back_preview_text.tag_configure(
+            "body",
+            font=("Segoe UI", 11),
+            foreground="#22313f",
+        )
+        self.back_preview_text.configure(spacing1=4, spacing2=2, spacing3=8, padx=4, pady=4)
+        self.back_preview_text.config(state="normal")
+
+    def _insert_back_line(self, text: str, *tags: str) -> None:
+        self.back_preview_text.insert("end", text, tags)
+
+    def _set_back_preview(self, card: Dict[str, object]) -> None:
+        self.back_preview_text.configure(state="normal")
+        self.back_preview_text.delete("1.0", "end")
+
+        self._insert_back_line("📌 ", "header")
+        self._insert_back_line("Meaning (English-English)\n", "header")
+
+        meanings = card.get("meanings", [])
+        for index, meaning in enumerate(meanings if isinstance(meanings, list) else []):
+            if not isinstance(meaning, dict):
+                continue
+            pos = str(meaning.get("part_of_speech", "")).strip()
+            definition = str(meaning.get("definition", "")).strip()
+            example_sentence = str(meaning.get("example_sentence", "")).strip()
+            example_meaning = str(meaning.get("meaning", "")).strip()
+            self._insert_back_line(f"{index + 1}. ", "section")
+            if pos:
+                self._insert_back_line(f"{pos} ", "label")
+            self._insert_back_line(f"{definition}\n", "body")
+            if example_sentence:
+                self._insert_back_line("   e.g. ", "accent")
+                self._insert_back_line(f"{example_sentence}\n", "body")
+            if example_meaning:
+                self._insert_back_line("   Meaning: ", "accent")
+                self._insert_back_line(f"{example_meaning}\n", "body")
+            self._insert_back_line("\n")
+
+        self._insert_back_line("📌 Common collocations\n", "section")
+        collocations = card.get("collocations", [])
+        for collocation in collocations if isinstance(collocations, list) else []:
+            if not isinstance(collocation, dict):
+                continue
+            phrase = str(collocation.get("phrase", "")).strip()
+            gloss = str(collocation.get("gloss", "")).strip()
+            if not phrase:
+                continue
+            self._insert_back_line(f"• {phrase}", "label")
+            if gloss:
+                self._insert_back_line(f"  {gloss}\n", "body")
+            else:
+                self._insert_back_line("\n", "body")
+
+        self._insert_back_line("\n📌 Extra examples\n", "section")
+        examples = card.get("extra_examples", [])
+        for example in examples if isinstance(examples, list) else []:
+            if not isinstance(example, dict):
+                continue
+            sentence = str(example.get("sentence", "")).strip()
+            meaning = str(example.get("meaning", "")).strip()
+            if not sentence:
+                continue
+            self._insert_back_line(f"• {sentence}\n", "body")
+            if meaning:
+                self._insert_back_line("   Meaning: ", "accent")
+                self._insert_back_line(f"{meaning}\n", "body")
+            self._insert_back_line("\n")
+
+        self.back_preview_text.configure(state="disabled")
 
     def _timestamp(self) -> str:
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
